@@ -19,8 +19,13 @@ with col_text:
     st.markdown("### مساعد طويق - شرح مفصل")
 
 if 'b64' not in st.session_state: st.session_state['b64'] = None
-if 'last_answer' not in st.session_state: st.session_state['last_answer'] = ""
-if 'full_answer' not in st.session_state: st.session_state['full_answer'] = ""
+
+# --- هنا الاختيار قبل الارسال ---
+mode = st.radio(
+    "كيف تبي الشرح؟",
+    ["📖 فصل لي الكلام كامل", "✂️ اختصر لي", "⚖️ شرح متوسط"],
+    horizontal=True
+)
 
 query = st.text_input("وش تبي تسأل؟", placeholder="مثال: ايش هي برمجة صفحات الانترنت؟")
 
@@ -49,77 +54,39 @@ if send:
     if not query and not st.session_state['b64']:
         st.warning("اكتب سؤال او ارفع صورة")
     else:
+        # نحدد طريقة الشرح حسب اختيارك قبل الارسال
+        if "اختصر" in mode:
+            system_prompt = "انت دكتور سعودي. اختصر الجواب في 5 نقاط مختصرة مفيدة بالعربي. ممنوع حروف صينية."
+        elif "فصل" in mode:
+            system_prompt = "انت دكتور جامعي سعودي خبير. فصل واشرح شرح مفصل جدا جدا مقسم بالنقاط وامثلة وخطوات بالعربي. لا تختصر ابدا. ممنوع حروف صينية."
+        else:
+            system_prompt = "انت دكتور سعودي. اشرح شرح متوسط واضح بالنقاط بالعربي. ممنوع حروف صينية."
+
         with st.spinner("قاعد أكتب لك..."):
             try:
                 if st.session_state['b64']:
                     model = "qwen/qwen3.6-27b"
                     messages = [
-                        {"role": "system", "content": "انت دكتور جامعي سعودي خبير. اشرح بالعربي شرح مفصل مقسم بالنقاط. ممنوع حروف صينية. حل الصورة واشرحها خطوة بخطوة."},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": [
-                            {"type": "text", "text": query if query else "حل الواجب اللي في الصورة شرح مفصل"},
+                            {"type": "text", "text": query if query else "حل الواجب اللي في الصورة"},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{st.session_state['b64']}"}}
                         ]}
                     ]
                 else:
                     model = "openai/gpt-oss-20b"
                     messages = [
-                        {"role": "system", "content": "انت دكتور جامعي سعودي خبير. اشرح بالعربي شرح مفصل مقسم بالنقاط بدون حروف صينية."},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": query}
                     ]
                 res = client.chat.completions.create(model=model, messages=messages)
-                ans = clean_chinese(res.choices[0].message.content)
-                st.session_state['full_answer'] = ans
-                st.session_state['last_answer'] = ans
+                st.success(clean_chinese(res.choices[0].message.content))
             except:
                 try:
                     fallback = "qwen/qwen3.8-27b" if st.session_state['b64'] else "openai/gpt-oss-120b"
                     res = client.chat.completions.create(model=fallback, messages=messages)
-                    ans = clean_chinese(res.choices[0].message.content)
-                    st.session_state['full_answer'] = ans
-                    st.session_state['last_answer'] = ans
+                    st.success(clean_chinese(res.choices[0].message.content))
                 except Exception as e:
                     st.error(f"خطأ: {e}")
-
-# --- عرض الجواب مع الازرار ---
-if st.session_state['last_answer']:
-    st.success(st.session_state['last_answer'])
-    
-    # ازرار التحكم
-    col_a, col_b = st.columns(2)
-    with col_a:
-        if st.button("✂️ اختصر لي", use_container_width=True):
-            with st.spinner("قاعد اختصر..."):
-                try:
-                    res = client.chat.completions.create(
-                        model="openai/gpt-oss-20b",
-                        messages=[
-                            {"role": "system", "content": "اختصر الكلام التالي بشكل مختصر مفيد بالعربي بدون حروف صينية."},
-                            {"role": "user", "content": st.session_state['full_answer']}
-                        ]
-                    )
-                    st.session_state['last_answer'] = clean_chinese(res.choices[0].message.content)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"خطأ: {e}")
-    
-    with col_b:
-        if st.button("📖 فصل لي الكلام كامل", use_container_width=True):
-            with st.spinner("قاعد افصل..."):
-                try:
-                    res = client.chat.completions.create(
-                        model="openai/gpt-oss-20b",
-                        messages=[
-                            {"role": "system", "content": "فصل واشرح الكلام التالي شرح مفصل جدا مقسم بالنقاط وامثلة بالعربي بدون حروف صينية."},
-                            {"role": "user", "content": st.session_state['full_answer']}
-                        ]
-                    )
-                    st.session_state['last_answer'] = clean_chinese(res.choices[0].message.content)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"خطأ: {e}")
-
-    if st.button("↩️ ارجع للأصل"):
-        st.session_state['last_answer'] = st.session_state['full_answer']
-        st.rerun()
 
 st.caption("📚 شغال بـ Groq الجديد ⚡")
