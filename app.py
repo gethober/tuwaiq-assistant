@@ -13,21 +13,29 @@ def clean_chinese(text):
 st.markdown("""
 <style>
 header {visibility: hidden;}
-a, .anchor-link {display: none !important;}
+a, .anchor-link, [data-testid="stHeaderActionElements"] {display: none !important;}
 </style>
 """, unsafe_allow_html=True)
 
 # فوق
 col_logo, col_text = st.columns([1, 5])
 with col_logo:
-    try: st.image("logo.png", width=60)
-    except: st.write("🌴")
+    try: 
+        st.image("logo.png", width=60)
+    except: 
+        st.write("🌴")
 with col_text:
     st.markdown("### مساعد طويق - شرح مفصل")
 
-if 'b64' not in st.session_state: st.session_state['b64'] = None
+if 'b64' not in st.session_state: 
+    st.session_state['b64'] = None
 
-mode = st.radio("كيف تبي الشرح؟", ["📖 فصل لي الكلام كامل", "✂️ اختصر لي", "⚖️ شرح متوسط"], horizontal=True)
+# الاختيار قبل الارسال
+mode = st.radio(
+    "كيف تبي الشرح؟",
+    ["📖 فصل لي الكلام كامل", "✂️ اختصر لي", "⚖️ شرح متوسط"],
+    horizontal=True
+)
 
 query = st.text_input("وش تبي تسأل؟", placeholder="مثال: ايش هي برمجة صفحات الانترنت؟")
 
@@ -62,6 +70,7 @@ if send:
             system_prompt = "انت دكتور جامعي سعودي خبير. فصل واشرح شرح مفصل جدا جدا مقسم بالنقاط وامثلة وخطوات بالعربي. لا تختصر ابدا. ممنوع حروف صينية."
         else:
             system_prompt = "انت دكتور سعودي. اشرح شرح متوسط واضح بالنقاط بالعربي. ممنوع حروف صينية."
+
         with st.spinner("قاعد أكتب لك..."):
             try:
                 if st.session_state['b64']:
@@ -89,13 +98,15 @@ if send:
                 except Exception as e:
                     st.error(f"خطأ: {e}")
 
-# --- تحت مره النهاية: الصورة فوق الكلام ---
+# --- تحت مره النهاية ---
 st.markdown("<div style='margin-top:120px;'></div>", unsafe_allow_html=True)
 
-# الصورة بالنص فوق الكلام
-c_a, c_b, c_c = st.columns([1,1,1])
-with c_b:
-    st.image("logo.png", use_container_width=True)
+# الصورة اللي ارسلتها فوق الكلام
+col_a, col_b, col_c = st.columns([2, 1, 2])
+with col_b:
+    try:
+        st.image("logo.png", use_container_width=True)
+    except:
+        pass
 
 st.markdown("<div style='text-align:center; font-size:55px; font-weight:900; letter-spacing:4px; color:white; margin-top:15px;'>MADE IN SAUDI</div>", unsafe_allow_html=True)
-st.markdown("<div style='text-align:center; font-size:20px; font-weight:600; color:white;'>Two Swords & Palm Tree</div>", unsafe_allow_html=True)
