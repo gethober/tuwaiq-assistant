@@ -20,12 +20,7 @@ with col_text:
 
 if 'b64' not in st.session_state: st.session_state['b64'] = None
 
-# --- هنا الاختيار قبل الارسال ---
-mode = st.radio(
-    "كيف تبي الشرح؟",
-    ["📖 فصل لي الكلام كامل", "✂️ اختصر لي", "⚖️ شرح متوسط"],
-    horizontal=True
-)
+mode = st.radio("كيف تبي الشرح؟", ["📖 فصل لي الكلام كامل", "✂️ اختصر لي", "⚖️ شرح متوسط"], horizontal=True)
 
 query = st.text_input("وش تبي تسأل؟", placeholder="مثال: ايش هي برمجة صفحات الانترنت؟")
 
@@ -54,14 +49,12 @@ if send:
     if not query and not st.session_state['b64']:
         st.warning("اكتب سؤال او ارفع صورة")
     else:
-        # نحدد طريقة الشرح حسب اختيارك قبل الارسال
         if "اختصر" in mode:
             system_prompt = "انت دكتور سعودي. اختصر الجواب في 5 نقاط مختصرة مفيدة بالعربي. ممنوع حروف صينية."
         elif "فصل" in mode:
             system_prompt = "انت دكتور جامعي سعودي خبير. فصل واشرح شرح مفصل جدا جدا مقسم بالنقاط وامثلة وخطوات بالعربي. لا تختصر ابدا. ممنوع حروف صينية."
         else:
             system_prompt = "انت دكتور سعودي. اشرح شرح متوسط واضح بالنقاط بالعربي. ممنوع حروف صينية."
-
         with st.spinner("قاعد أكتب لك..."):
             try:
                 if st.session_state['b64']:
@@ -89,4 +82,11 @@ if send:
                 except Exception as e:
                     st.error(f"خطأ: {e}")
 
-st.caption("📚 شغال بـ Groq الجديد ⚡")
+# --- تحت مره في النهاية بخط كبير بالانجليزي مع السيفين والنخلة ---
+st.markdown("<div style='margin-top:100px;'></div>", unsafe_allow_html=True)
+col_a, col_b, col_c = st.columns([1,1,1])
+with col_b:
+    try: st.image("logo.png", use_container_width=True)
+    except: pass
+st.markdown("<h1 style='text-align:center; font-size:55px; font-weight:900; letter-spacing:4px;'>MADE IN SAUDI</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:22px; font-weight:600;'>Two Swords & Palm Tree</p>", unsafe_allow_html=True)
