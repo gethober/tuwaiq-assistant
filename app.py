@@ -9,8 +9,15 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 def clean_chinese(text):
     return re.sub(r'[\u4e00-\u9fff]+', '', text)
 
-st.markdown("<style>header {visibility: hidden;}</style>", unsafe_allow_html=True)
+# اخفاء الهيدر وعلامة الرابط
+st.markdown("""
+<style>
+header {visibility: hidden;}
+a, .anchor-link {display: none !important;}
+</style>
+""", unsafe_allow_html=True)
 
+# فوق
 col_logo, col_text = st.columns([1, 5])
 with col_logo:
     try: st.image("logo.png", width=60)
@@ -82,11 +89,13 @@ if send:
                 except Exception as e:
                     st.error(f"خطأ: {e}")
 
-# --- تحت مره في النهاية بخط كبير بالانجليزي مع السيفين والنخلة ---
-st.markdown("<div style='margin-top:100px;'></div>", unsafe_allow_html=True)
-col_a, col_b, col_c = st.columns([1,1,1])
-with col_b:
-    try: st.image("logo.png", use_container_width=True)
-    except: pass
-st.markdown("<h1 style='text-align:center; font-size:55px; font-weight:900; letter-spacing:4px;'>MADE IN SAUDI</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; font-size:22px; font-weight:600;'>Two Swords & Palm Tree</p>", unsafe_allow_html=True)
+# --- تحت مره النهاية: الصورة فوق الكلام ---
+st.markdown("<div style='margin-top:120px;'></div>", unsafe_allow_html=True)
+
+# الصورة بالنص فوق الكلام
+c_a, c_b, c_c = st.columns([1,1,1])
+with c_b:
+    st.image("logo.png", use_container_width=True)
+
+st.markdown("<div style='text-align:center; font-size:55px; font-weight:900; letter-spacing:4px; color:white; margin-top:15px;'>MADE IN SAUDI</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center; font-size:20px; font-weight:600; color:white;'>Two Swords & Palm Tree</div>", unsafe_allow_html=True)
