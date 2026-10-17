@@ -3,7 +3,7 @@ from groq import Groq
 import re
 import base64
 
-st.set_page_config(page_title="مساعد طويق - شرح مفصل", layout="centered", page_icon="icon.png")
+st.set_page_config(page_title="مساعد طويق", layout="centered", page_icon="icon.png")
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 def clean_chinese(text):
