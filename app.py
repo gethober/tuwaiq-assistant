@@ -5,8 +5,8 @@ import re
 import base64
 
 st.set_page_config(page_title="مساعد طويق", layout="centered", page_icon=Image.open("icon.png"))
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
+import os
+client = Groq(api_key=os.getenv("GROQ_API_KEY") or st.secrets["GROQ_API_KEY"])
 def clean_chinese(text):
     return re.sub(r'[\u4e00-\u9fff]+', '', text)
 
