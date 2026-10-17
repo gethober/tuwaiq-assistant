@@ -1,9 +1,10 @@
 import streamlit as st
 from groq import Groq
+from PIL import Image
 import re
 import base64
 
-st.set_page_config(page_title="مساعد طويق", layout="centered", page_icon="icon.png")
+st.set_page_config(page_title="مساعد طويق", layout="centered", page_icon=Image.open("icon.png"))
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 def clean_chinese(text):
