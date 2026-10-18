@@ -7,7 +7,7 @@ st.set_page_config(page_title="بيان", layout="centered", page_icon="📖")
 
 api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", None)
 if not api_key:
-    st.error("حط GROQ_API_KEY"); st.stop()
+    st.error("حط GROQ_API_KEY في secrets.toml"); st.stop()
 client = Groq(api_key=api_key)
 
 def extract_text(file):
@@ -21,11 +21,13 @@ def extract_text(file):
             d = docx.Document(file)
             return "\n".join([p.text for p in d.paragraphs])[:15000]
         return data.decode('utf-8', errors='ignore')[:15000]
-    except: return None
+    except Exception as e:
+        return f"خطأ قراءة الملف: {e}"
 
 if 'chat' not in st.session_state: st.session_state.chat = []
 if 'b64' not in st.session_state: st.session_state.b64 = None
 if 'file_text' not in st.session_state: st.session_state.file_text = None
+if 'file_name' not in st.session_state: st.session_state.file_name = None
 
 st.markdown("""
 <style>
@@ -44,7 +46,6 @@ for m in st.session_state.chat:
 
 mode = st.radio(" ", ["📖 تفصيلي", "✂️ مختصر", "⚖️ متوسط"], horizontal=True, label_visibility="collapsed")
 
-# --- هذا هو الحل: chat_input فيه مشبك داخل ويدعم Ctrl+V ---
 prompt = st.chat_input(
     "وش تبي بيان يطلع لك من الملف؟ 📎 تقدر تلصق الصورة هنا Ctrl+V",
     accept_file=True,
@@ -52,7 +53,7 @@ prompt = st.chat_input(
 )
 
 if prompt:
-    query = prompt.text
+    query = prompt.text.strip() if prompt.text else ""
     uploaded = prompt.files[0] if prompt.files else None
 
     if uploaded:
@@ -63,45 +64,63 @@ if prompt:
         else:
             st.session_state.file_text = extract_text(uploaded)
             st.session_state.b64 = None
+
+    user_display = query if query else f"📎 {uploaded.name if uploaded else st.session_state.file_name}"
+    if user_display:
+        st.session_state.chat.append({"role":"user","content":user_display})
         with st.chat_message("user"):
-            st.markdown(f"📎 {uploaded.name}")
-            if st.session_state.b64: st.image(uploaded, width=200)
+            st.markdown(user_display)
+            if uploaded and uploaded.name.lower().endswith((".png",".jpg",".jpeg",".webp")):
+                st.image(uploaded, width=250)
 
-    if query or uploaded:
-        user_display = query or f"📎 {uploaded.name if uploaded else ''}"
-        if not uploaded: # اذا ما فيه ملف مرفوع بالضغطه هذي، استخدم اخر ملف
-            st.session_state.chat.append({"role":"user","content":user_display})
-            with st.chat_message("user"): st.markdown(user_display)
+    # تجهيز الرسالة
+    if st.session_state.file_text:
+        full_text = f"اسم الملف: {st.session_state.file_name}\nمحتوى الملف:\n{st.session_state.file_text}\n\nسؤال المستخدم: {query or 'اشرح ولخص'}"
+    else:
+        full_text = query or "اشرح الصورة بالتفصيل وبالعربي"
 
-        full = ""
-        if st.session_state.file_text:
-            full = f"الملف {st.session_state.file_name}:\n{st.session_state.file_text}\n\nسؤال:{query or 'اشرح'}"
-        else:
-            full = query or "اشرح الصورة"
+    if "مختصر" in mode: extra = "جاوب باختصار شديد ومباشر."
+    elif "متوسط" in mode: extra = "جاوب بتوازن بين الاختصار والتفصيل."
+    else: extra = "جاوب بتفصيل مع أمثلة واضحة."
 
-        extra = "اختصر." if "مختصر" in mode else "متوسط." if "متوسط" in mode else "بتفصيل مع امثلة."
-        messages = [{"role":"system","content":f"انت بيان، مساعد تقني. {extra}"}]
-        messages += st.session_state.chat[-6:]
-        messages.append({"role":"user","content":full})
-
+    system_msg = {"role":"system","content":f"أنت بيان، مساعد تقني ذكي، ترد بالعربي. {extra}"}
+    
+    # خذ اخر 6 رسائل فقط عشان ما يثقل
+    history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat[-6:-1]]
+    
+    try:
         with st.chat_message("assistant"):
             with st.spinner("بيان يفكر..."):
-                try:
-                    if st.session_state.b64:
-                        messages[-1] = {"role":"user","content":[
-                            {"type":"text","text":full},
+                if st.session_state.b64:
+                    # موديل الصور الصحيح في Groq
+                    model_name = "meta-llama/llama-4-scout-17b-16e-instruct"
+                    # لو فشل، جرب هذا البديل التلقائي
+                    try:
+                        messages = [system_msg] + history + [{"role":"user","content":[
+                            {"type":"text","text":full_text},
                             {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{st.session_state.b64}"}}
-                        ]}
-                        model="meta-llama/llama-4-scout-17b-16e-instruct"
-                    else:
-                        model="openai/gpt-oss-20b"
-                    
-                    res = client.chat.completions.create(model=model, messages=messages, temperature=0.5)
-                    ans = res.choices[0].message.content
-                    st.markdown(ans)
-                    st.session_state.chat.append({"role":"assistant","content":ans})
-                except Exception as e:
-                    st.error(f"خطأ: {e}")
+                        ]}]
+                        res = client.chat.completions.create(model=model_name, messages=messages, temperature=0.3, max_tokens=2048)
+                    except Exception:
+                        # البديل الثاني المضمون للصور
+                        model_name = "llama-3.2-11b-vision-preview"
+                        messages = [system_msg] + history + [{"role":"user","content":[
+                            {"type":"text","text":full_text},
+                            {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{st.session_state.b64}"}}
+                        ]}]
+                        res = client.chat.completions.create(model=model_name, messages=messages, temperature=0.3, max_tokens=2048)
+                else:
+                    model_name = "llama-3.3-70b-versatile"
+                    messages = [system_msg] + history + [{"role":"user","content":full_text}]
+                    res = client.chat.completions.create(model=model_name, messages=messages, temperature=0.5, max_tokens=2048)
+
+                ans = res.choices[0].message.content
+                st.markdown(ans)
+                st.session_state.chat.append({"role":"assistant","content":ans})
+
+    except Exception as e:
+        st.error(f"خطأ: {e}")
 
 if st.button("🗑️ مسح المحادثة"):
-    st.session_state.chat=[]; st.session_state.file_text=None; st.session_state.b64=None; st.rerun()
+    st.session_state.chat=[]; st.session_state.file_text=None; st.session_state.b64=None; st.session_state.file_name=None
+    st.rerun()
