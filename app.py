@@ -1,7 +1,8 @@
 import streamlit as st
 from groq import Groq
 import base64, os
-import fitz, docx
+import fitz
+import docx
 
 st.set_page_config(page_title="بيان", layout="centered", page_icon="📖")
 
@@ -65,7 +66,7 @@ if prompt:
             st.session_state.file_text = extract_text(uploaded)
             st.session_state.b64 = None
 
-    user_display = query if query else f"📎 {uploaded.name if uploaded else st.session_state.file_name}"
+    user_display = query if query else f"📎 {uploaded.name if uploaded else st.session_state.file_name or ''}"
     if user_display:
         st.session_state.chat.append({"role":"user","content":user_display})
         with st.chat_message("user"):
@@ -73,48 +74,58 @@ if prompt:
             if uploaded and uploaded.name.lower().endswith((".png",".jpg",".jpeg",".webp")):
                 st.image(uploaded, width=250)
 
-    # تجهيز الرسالة
     if st.session_state.file_text:
         full_text = f"اسم الملف: {st.session_state.file_name}\nمحتوى الملف:\n{st.session_state.file_text}\n\nسؤال المستخدم: {query or 'اشرح ولخص'}"
     else:
-        full_text = query or "اشرح الصورة بالتفصيل وبالعربي"
+        full_text = query or "اشرح الصورة بالتفصيل وبالعربي واقرأ كل النص اللي فيها"
 
     if "مختصر" in mode: extra = "جاوب باختصار شديد ومباشر."
     elif "متوسط" in mode: extra = "جاوب بتوازن بين الاختصار والتفصيل."
     else: extra = "جاوب بتفصيل مع أمثلة واضحة."
 
     system_msg = {"role":"system","content":f"أنت بيان، مساعد تقني ذكي، ترد بالعربي. {extra}"}
-    
-    # خذ اخر 6 رسائل فقط عشان ما يثقل
     history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat[-6:-1]]
-    
+
     try:
         with st.chat_message("assistant"):
             with st.spinner("بيان يفكر..."):
                 if st.session_state.b64:
-                    # موديل الصور الصحيح في Groq
-                    model_name = "meta-llama/llama-4-scout-17b-16e-instruct"
-                    # لو فشل، جرب هذا البديل التلقائي
-                    try:
-                        messages = [system_msg] + history + [{"role":"user","content":[
-                            {"type":"text","text":full_text},
-                            {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{st.session_state.b64}"}}
-                        ]}]
-                        res = client.chat.completions.create(model=model_name, messages=messages, temperature=0.3, max_tokens=2048)
-                    except Exception:
-                        # البديل الثاني المضمون للصور
-                        model_name = "llama-3.2-11b-vision-preview"
-                        messages = [system_msg] + history + [{"role":"user","content":[
-                            {"type":"text","text":full_text},
-                            {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{st.session_state.b64}"}}
-                        ]}]
-                        res = client.chat.completions.create(model=model_name, messages=messages, temperature=0.3, max_tokens=2048)
+                    # الموديلات الوحيدة اللي تدعم الصور في Groq حالياً
+                    vision_models = [
+                        "meta-llama/llama-4-maverick-17b-128e-instruct",
+                        "meta-llama/llama-4-scout-17b-16e-instruct"
+                    ]
+                    
+                    messages_with_image = [system_msg] + history + [{"role":"user","content":[
+                        {"type":"text","text":full_text},
+                        {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{st.session_state.b64}"}}
+                    ]}]
+
+                    ans = None
+                    last_error = ""
+                    for model_name in vision_models:
+                        try:
+                            res = client.chat.completions.create(
+                                model=model_name,
+                                messages=messages_with_image,
+                                temperature=0.3,
+                                max_tokens=2048
+                            )
+                            ans = res.choices[0].message.content
+                            break
+                        except Exception as e:
+                            last_error = str(e)
+                            continue
+                    
+                    if not ans:
+                        st.error(f"كل موديلات الصور فشلت. آخر خطأ: {last_error}")
+                        st.stop()
                 else:
                     model_name = "llama-3.3-70b-versatile"
                     messages = [system_msg] + history + [{"role":"user","content":full_text}]
                     res = client.chat.completions.create(model=model_name, messages=messages, temperature=0.5, max_tokens=2048)
+                    ans = res.choices[0].message.content
 
-                ans = res.choices[0].message.content
                 st.markdown(ans)
                 st.session_state.chat.append({"role":"assistant","content":ans})
 
