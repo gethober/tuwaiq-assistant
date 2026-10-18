@@ -1,2 +1,5 @@
 streamlit
 groq
+Pillow
+PyMuPDF
+python-docx
