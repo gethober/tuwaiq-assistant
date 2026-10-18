@@ -5,7 +5,7 @@ import re, base64, os
 import fitz  # PDF
 import docx  # Word
 
-st.set_page_config(page_title="مساعد طويق", layout="centered", page_icon="icon.png")
+st.set_page_config(page_title="مساعددك التقني", layout="centered", page_icon="icon.png")
 api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
 client = Groq(api_key=api_key)
 
