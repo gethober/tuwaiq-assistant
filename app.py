@@ -3,6 +3,8 @@ from groq import Groq
 import base64, os
 import fitz
 import docx
+from PIL import Image
+import io
 
 st.set_page_config(page_title="بيان", layout="centered", page_icon="📖")
 
@@ -10,6 +12,14 @@ api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", None)
 if not api_key:
     st.error("حط GROQ_API_KEY في secrets.toml"); st.stop()
 client = Groq(api_key=api_key)
+
+# موديلات نصية شغالة 100% على الحساب المجاني
+TEXT_MODEL = "llama-3.1-8b-instant"
+# موديلات صور قديمة لكن لسه شغالة للمجاني
+VISION_MODELS = [
+    "llama-3.2-90b-vision-preview",
+    "llama-3.2-11b-vision-preview",
+]
 
 def extract_text(file):
     try:
@@ -89,21 +99,14 @@ if prompt:
     try:
         with st.chat_message("assistant"):
             with st.spinner("بيان يفكر..."):
+                ans = None
+                last_error = ""
                 if st.session_state.b64:
-                    # الموديلات الوحيدة اللي تدعم الصور في Groq حالياً
-                    vision_models = [
-                        "meta-llama/llama-4-maverick-17b-128e-instruct",
-                        "meta-llama/llama-4-scout-17b-16e-instruct"
-                    ]
-                    
                     messages_with_image = [system_msg] + history + [{"role":"user","content":[
                         {"type":"text","text":full_text},
                         {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{st.session_state.b64}"}}
                     ]}]
-
-                    ans = None
-                    last_error = ""
-                    for model_name in vision_models:
+                    for model_name in VISION_MODELS:
                         try:
                             res = client.chat.completions.create(
                                 model=model_name,
@@ -116,14 +119,15 @@ if prompt:
                         except Exception as e:
                             last_error = str(e)
                             continue
-                    
                     if not ans:
-                        st.error(f"كل موديلات الصور فشلت. آخر خطأ: {last_error}")
-                        st.stop()
+                        st.error(f"موديلات الصور فشلت، بجرب يقرا النص بدون رؤية: {last_error}")
+                        # fallback نصي فقط
+                        messages = [system_msg] + history + [{"role":"user","content": full_text + " (الصورة لم استطع رؤيتها، جاوب حسب السؤال)"}]
+                        res = client.chat.completions.create(model=TEXT_MODEL, messages=messages, temperature=0.5, max_tokens=2048)
+                        ans = res.choices[0].message.content
                 else:
-                    model_name = "llama-3.3-70b-versatile"
                     messages = [system_msg] + history + [{"role":"user","content":full_text}]
-                    res = client.chat.completions.create(model=model_name, messages=messages, temperature=0.5, max_tokens=2048)
+                    res = client.chat.completions.create(model=TEXT_MODEL, messages=messages, temperature=0.5, max_tokens=2048)
                     ans = res.choices[0].message.content
 
                 st.markdown(ans)
